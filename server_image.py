@@ -125,7 +125,12 @@ def server_image(input, output, session: Session):
         water_mask = water_mask.astype(bool)
         subset_plot = subset.copy()
         subset_plot[water_mask, 0] = 0
-        fig = px.imshow(subset_plot[:, :, :3])
+        if input.image_visualisation() == "RGB":
+            fig = px.imshow(subset_plot[:, :, :3])
+        elif input.image_visualisation() == "NDVI":
+            fig = px.imshow(ndvi)
+        elif input.image_visualisation() == "NIR":
+            fig = px.imshow(nir, color_continuous_scale="icefire")
         fig.update_layout(
             autosize=False,
             width=1000,
