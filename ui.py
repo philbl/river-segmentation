@@ -7,9 +7,7 @@ ui_image = ui.page_fluid(
     ui.row(
         ui.column(
             2,
-            ui.input_text(
-                "image_folder", "Dossier d'images", ""
-            ),
+            ui.input_text("image_folder", "Dossier d'images", ""),
         ),
         ui.column(
             2,
@@ -55,6 +53,12 @@ ui_image = ui.page_fluid(
         ui.column(
             1,
             ui.input_checkbox("use_nir", "Utiliser NIR"),
+        ),
+        ui.column(
+            1,
+            ui.input_select(
+                "image_visualisation", "Visualisation", choices=["RGB", "NDVI", "NIR"]
+            ),
         ),
         ui.column(
             1,
