@@ -122,6 +122,8 @@ def server_image(input, output, session: Session):
             fig = px.imshow(ndvi, zmin=-1, zmax=1)
         elif input.image_visualisation() == "NIR":
             fig = px.imshow(nir, color_continuous_scale="icefire", zmin=0, zmax=255)
+        else:
+            raise ValueError("Image Visualisation not in RGB, NDVI or NIR")
         fig.update_layout(
             autosize=False,
             width=1000,
