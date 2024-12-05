@@ -70,6 +70,8 @@ def server_image(input, output, session: Session):
             ndvi = (subset_float[:, :, 3] - subset_float[:, :, 0]) / (
                 subset_float[:, :, 3] + subset_float[:, :, 0]
             )
+            ndvi[numpy.isnan(ndvi)] = -999
+            ndvi = ndvi.round(4)
             nir = subset[:, :, 3]
             p.set(3)
         return subset, ndvi, nir
@@ -117,9 +119,9 @@ def server_image(input, output, session: Session):
         if input.image_visualisation() == "RGB":
             fig = px.imshow(subset_plot[:, :, :3])
         elif input.image_visualisation() == "NDVI":
-            fig = px.imshow(ndvi)
+            fig = px.imshow(ndvi, zmin=-1, zmax=1)
         elif input.image_visualisation() == "NIR":
-            fig = px.imshow(nir, color_continuous_scale="icefire")
+            fig = px.imshow(nir, color_continuous_scale="icefire", zmin=0, zmax=255)
         fig.update_layout(
             autosize=False,
             width=1000,
