@@ -50,17 +50,6 @@ def server_image(input, output, session: Session):
             img = rasterio.open(Path(input.image_folder(), input.image_name()))
             img_array = img.read()
             transect_polygon_df = geopandas.read_file(input.transect_path())
-            transect_polygon_df = transect_polygon_df[
-                transect_polygon_df["Backwater"] == 0
-            ]
-            transect_polygon_df = transect_polygon_df[transect_polygon_df["Lac"] == 0]
-            transect_polygon_df = transect_polygon_df[
-                ~transect_polygon_df["Slope"].isna()
-            ]
-            transect_polygon_df = transect_polygon_df[transect_polygon_df["Slope"] > 0]
-            transect_polygon_df = transect_polygon_df.sort_values(by="PK").reset_index(
-                drop=True
-            )
             p.set(1)
             all_transect_polygon = get_water_rgb_array_from_transect_df(
                 img, transect_polygon_df
