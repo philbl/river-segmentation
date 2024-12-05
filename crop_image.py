@@ -7,7 +7,7 @@ from crop_image.utils import crop_image_under_from_2_images
 
 
 INDEX_FILE_PATH = "D:/SERIF/DMT/PHOTOS/Index/Index_ortho_utilisees_DMT.shp"
-IMAGE_FOLDER_PATH = "D:/SERIF/DMT/PHOTOS"
+IMAGE_FOLDER_PATH = "D:/SERIF/DMT/photos_crop_2024/"
 
 if __name__ == "__main__":
     image_to_process_df = geopandas.read_file(INDEX_FILE_PATH)
@@ -15,7 +15,7 @@ if __name__ == "__main__":
         drop=True
     )
     image_to_process_df["nom_image_save"] = image_to_process_df["NOM_IMAGE"].apply(
-        lambda nom_image: f"{nom_image.replace('rgb', '')}_4bandes_ortho"
+        lambda nom_image: f"{nom_image.replace('_rgb', '')}_4bandes_ortho"
     )
     for image_path in filter(
         lambda path: ".tif" in str(path), Path(IMAGE_FOLDER_PATH).iterdir()
@@ -24,7 +24,6 @@ if __name__ == "__main__":
             image_path.name.split(".")[0]
             not in image_to_process_df["nom_image_save"].values
         ):
-            print(image_path)
             image_path.unlink()
 
     for image_under_index, image_under_row in tqdm(
