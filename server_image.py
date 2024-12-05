@@ -145,4 +145,4 @@ def server_image(input, output, session: Session):
     async def download_data():
         await asyncio.sleep(1)
         yield "image_name,ndvi,nir\n"
-        yield f"{input.image_name()[:-3],input.ndvi_threshold()},{input.nir_threshold()}\n"
+        yield f"{input.image_name()[:-3]},{input.ndvi_threshold()},{input.nir_threshold()}\n"
