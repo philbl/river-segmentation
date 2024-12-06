@@ -3,6 +3,7 @@ from rasterio.windows import Window
 from rasterio.features import geometry_mask
 import numpy
 import geopandas
+import shapely
 from skimage import img_as_float32
 
 from river_segmentation.utils import (
@@ -26,8 +27,16 @@ class ImageHandler:
             all_transect_polygon = get_water_rgb_array_from_transect_df(
                 src, transect_polygon_df
             )
+            if isinstance(all_transect_polygon, shapely.geometry.polygon.Polygon):
+                polygon_list = [all_transect_polygon]
+            elif isinstance(
+                all_transect_polygon, shapely.geometry.multipolygon.MultiPolygon
+            ):
+                polygon_list = list(all_transect_polygon.geoms)
+            else:
+                raise ValueError("Unknown polygon type")
             river_mask = geometry_mask(
-                all_transect_polygon.geoms,
+                polygon_list,
                 out_shape=src.shape,
                 transform=src.transform,
                 invert=True,
@@ -44,7 +53,6 @@ class ImageHandler:
             img_array = src.read(window=window)
 
         rgbnir_array = img_array.transpose(1, 2, 0)
-        # subset = rgbnir_array[ymin:ymax, xmin:xmax]
         return rgbnir_array
 
     def _load_nir(self):
