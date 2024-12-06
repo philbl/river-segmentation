@@ -7,14 +7,16 @@ ui_image = ui.page_fluid(
     ui.row(
         ui.column(
             2,
-            ui.input_text("image_folder", "Dossier d'images", ""),
+            ui.input_text(
+                "image_folder", "Dossier d'images", r"D:\SERIF\DMT\photos_crop_v2"
+            ),
         ),
         ui.column(
             2,
             ui.input_text(
                 "transect_path",
                 "Transect shapefile",
-                "",
+                r"D:\SERIF\DMT\Transect_mathias_nov_2024\Transects_Level_2_DMT.shp",
             ),
         ),
         ui.column(
@@ -85,5 +87,7 @@ ui_image = ui.page_fluid(
             ui.download_button("download_data", "Sauvegarder"),
         ),
     ),
-    output_widget("show_raster"),
+    output_widget(
+        "show_raster",
+    ),
 )

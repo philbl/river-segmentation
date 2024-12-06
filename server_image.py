@@ -2,15 +2,11 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 import plotly.express as px
-import rasterio
-from rasterio.features import geometry_mask
 import numpy
-import geopandas
 from shiny import ui, render, reactive, Session
-from shinywidgets import render_widget
-from skimage import img_as_float32
+from shinywidgets import render_plotly
 
-from utils import get_water_rgb_array_from_transect_df, find_bounding_box
+from river_segmentation.image_handler import ImageHandler
 
 
 def server_image(input, output, session: Session):
@@ -31,9 +27,9 @@ def server_image(input, output, session: Session):
             p.set(
                 message="Téléversement en cours", detail="Peut prendre jusqu'à 1 minute"
             )
-            subset, ndvi, nir = load_raster()
+            image_handler = load_image_handler()
             p.set(1)
-            ymax, xmax = nir.shape
+            ymax, xmax = image_handler.image_shape
             ui.update_numeric("xmin", value=0)
             ui.update_numeric("xmax", value=xmax)
             ui.update_numeric("ymin", value=0)
@@ -42,39 +38,18 @@ def server_image(input, output, session: Session):
 
     @reactive.Calc
     @reactive.event(input.load_image)
-    def load_raster():
+    def load_image_handler():
         with ui.Progress(min=1, max=3) as p:
             p.set(
                 message="Téléversement en cours", detail="Peut prendre jusqu'à 1 minute"
             )
-            img = rasterio.open(Path(input.image_folder(), input.image_name()))
-            img_array = img.read()
-            transect_polygon_df = geopandas.read_file(input.transect_path())
             p.set(1)
-            all_transect_polygon = get_water_rgb_array_from_transect_df(
-                img, transect_polygon_df
-            )
-            river_mask = geometry_mask(
-                all_transect_polygon.geoms,
-                out_shape=img_array.shape[1:],
-                transform=img.transform,
-                invert=True,
+            image_handler = ImageHandler(
+                image_path=Path(input.image_folder(), input.image_name()),
+                transect_path=input.transect_path(),
             )
             p.set(2)
-            xmin, xmax, ymin, ymax = find_bounding_box(
-                numpy.atleast_3d(river_mask).transpose(2, 0, 1)
-            )
-            rgbnir_array = img_array.transpose(1, 2, 0)
-            subset = rgbnir_array[ymin:ymax, xmin:xmax]
-            subset_float = img_as_float32(subset)
-            ndvi = (subset_float[:, :, 3] - subset_float[:, :, 0]) / (
-                subset_float[:, :, 3] + subset_float[:, :, 0]
-            )
-            ndvi[numpy.isnan(ndvi)] = -999
-            ndvi = ndvi.round(4)
-            nir = subset[:, :, 3]
-            p.set(3)
-        return subset, ndvi, nir
+        return image_handler
 
     @reactive.Calc
     @reactive.event(input.apply_threshold_values)
@@ -89,10 +64,14 @@ def server_image(input, output, session: Session):
         ymax = input.ymax()
         return ndvi_threshold, nir_threshold, use_ndvi, use_nir, xmin, xmax, ymin, ymax
 
-    @output
-    @render_widget
+    # @output
+    # @render_widget
+    @render_plotly
     def show_raster():
-        subset, ndvi, nir = load_raster()
+        image_handler = load_image_handler()
+        subset = image_handler.rgbnir
+        ndvi = image_handler.ndvi
+        nir = image_handler.nir
         (
             ndvi_threshold,
             nir_threshold,
