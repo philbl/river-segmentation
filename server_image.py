@@ -67,6 +67,7 @@ def server_image(input, output, session: Session):
     # @output
     # @render_widget
     @render_plotly
+    @reactive.event(input.apply_threshold_values)
     def show_raster():
         image_handler = load_image_handler()
         subset = image_handler.rgbnir
