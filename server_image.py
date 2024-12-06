@@ -96,6 +96,8 @@ def server_image(input, output, session: Session):
         water_mask = water_mask.astype(bool)
         subset_plot = subset.copy()
         subset_plot[water_mask, 0] = 0
+        subset_plot[water_mask, 1] = 240
+        subset_plot[water_mask, 2] = 240
         if input.image_visualisation() == "RGB":
             fig = px.imshow(subset_plot[:, :, :3])
         elif input.image_visualisation() == "NDVI":
