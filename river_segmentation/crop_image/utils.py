@@ -1,40 +1,28 @@
 import numpy
 import rasterio
-from rasterio.features import shapes, geometry_mask
-from rasterio.enums import Resampling
-from shapely.geometry import Polygon
-
-
-def get_bounding_polygon_of_image(image_array, transform):
-    valid_mask = image_array != 0
-    shapes_generator = shapes(valid_mask.astype(numpy.uint8), transform=transform)
-    polygons = [
-        Polygon(geometry["coordinates"][0])
-        for geometry, value in shapes_generator
-        if value == 1
-    ]
-    bigest_polygon_index = numpy.argmax([polygon.area for polygon in polygons])
-    polygon = polygons[bigest_polygon_index]
-    return polygon
+from rasterio.enums import Resampling as Resampling_enums
+from rasterio.warp import reproject
+from rasterio.warp import Resampling as Resampling_warp
 
 
 def crop_image_under_from_2_images(image_under_path, image_over_path, do_ovr=True):
     image_under = rasterio.open(image_under_path)
     image_over = rasterio.open(image_over_path)
-    image_under_array = image_under.read()
-    image_over_array = image_over.read()
-    image_under_polygon = get_bounding_polygon_of_image(
-        image_under_array[0, :, :], image_under.transform
+    image_under_array = image_under.read(2)
+    image_over_array = image_over.read(2)
+    image_over_reproject_to_under = numpy.zeros(
+        image_under_array.shape, dtype=image_under_array.dtype
     )
-    image_over_polygon = get_bounding_polygon_of_image(
-        image_over_array[0, :, :], image_over.transform
+    reproject(
+        source=image_over_array,
+        destination=image_over_reproject_to_under,
+        src_transform=image_over.transform,
+        dst_transform=image_under.transform,
+        src_crs=image_under.crs,
+        dst_crs=image_under.crs,
+        resampling=Resampling_warp.nearest,
     )
-    image_under_good_polygon = image_under_polygon.difference(image_over_polygon)
-    image_under_good_mask = geometry_mask(
-        [image_under_good_polygon],
-        out_shape=image_under.shape,
-        transform=image_under.transform,
-    )
+    image_under_bad_mask = image_over_reproject_to_under > 0
     image_under.close()
     image_over.close()
     with rasterio.open(image_under_path, "r+") as dataset:
@@ -43,7 +31,7 @@ def crop_image_under_from_2_images(image_under_path, image_over_path, do_ovr=Tru
         # Step 2: Apply the mask
         # Assume mask is a 2D array of the same shape as one band (rows, cols)
         # Broadcast mask to all bands if necessary
-        data[:, image_under_good_mask] = 0  # Set masked pixels to 0
+        data[:, image_under_bad_mask] = 0  # Set masked pixels to 0
 
         dataset.nodata = 0
 
@@ -53,5 +41,5 @@ def crop_image_under_from_2_images(image_under_path, image_over_path, do_ovr=Tru
         if do_ovr:
             # Step 4: Rebuild the overviews for the .tif.ovr file
             overview_levels = [2, 4, 8, 16]  # Define reduction levels
-            dataset.build_overviews(overview_levels, Resampling.nearest)
+            dataset.build_overviews(overview_levels, Resampling_enums.nearest)
             dataset.update_tags(ns="rio_overview", resampling="nearest")
