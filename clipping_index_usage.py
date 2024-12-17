@@ -1,23 +1,31 @@
 import os
 from river_segmentation.crop_image.index_processer import IndexProcesser
 
+PATH_PROJECT = r"D:\SERIF\BNV\PHOTOS"
+
+# The index file must be in a subfolder within the TIF file's folder
+# The structure must be as follows: PHOTOS_TIF/Index/index_file_name.shp
+# IMPORTANT: The Index folder must start with capital I
+INDEX_SHP_PATH = os.path.join(PATH_PROJECT, "Index/index_BNV_tributaires.shp")
+
+CRS = "2947"  # Select the EPSG code based on the TIF image projection
+
+# This is the prefix just before the extention. For example if your file's name is
+# q16039_453_30cm_f05.tif the prefix is "30cm_f05".
+FILE_PREFIX = "30cm_f05"
+
+
 def main():
-    path_project = r"path/to/your/river/photos"
     # Create instance of the index processer
     processer = IndexProcesser()
-    # The index file must be in a subfolder within the TIF file's folder 
-    # The structure must be as follows: PHOTOS_TIF/Index/index_file_name.shp
-    # IMPORTANT: The Index folder must start with capital I
-    processer.index = os.path.join(path_project,"Index/index_file_name.shp")
-    processer.photos = path_project
-    processer.reproject_index("2947") #Select the EPSG code based on the TIF image projection
+    processer.photos = PATH_PROJECT
+    processer.index = INDEX_SHP_PATH
+    processer.reproject_index(CRS)
     processer.trim_index()
-    #This is the prefix just before the extention. For example if your file's name is
-    # q16039_453_30cm_f05.tif the prefix is "30cm_f05".
-    processer.create_box_from_extent("file_prefix")
+    processer.create_box_from_extent(FILE_PREFIX)
     # This will save the clipped index and this index can be used to subsequently clip the photos
     processer.clip_overlapping_features()
-    return 0
+    # return 0
 
 
 if __name__ == "__main__":
