@@ -1,4 +1,6 @@
 import os
+import numpy as np
+import pandas as pd
 import geopandas as gpd
 import rasterio as rio
 from shapely.geometry import box
@@ -22,16 +24,16 @@ class IndexProcesser:
         self._photos_path = path
 
     @property
-    def index(self) -> gpd.GeoDataFrame:
-        return self._index_original
-
-    @property
     def trimmed_index(self) -> gpd.GeoDataFrame:
         return self._trimmed_index
 
     @trimmed_index.setter
     def trimmed_index(self, gdf: gpd.GeoDataFrame):
         self._trimmed_index = gdf
+
+    @property
+    def index(self) -> gpd.GeoDataFrame:
+        return self._index_original
 
     @index.setter
     def index(self, index_path: str):
@@ -45,6 +47,31 @@ class IndexProcesser:
     @raster_box_index.setter
     def raster_box_index(self, gdf: gpd.GeoDataFrame):
         self._raster_box_index = gdf
+    
+    @classmethod
+    def get_neighbours(cls, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+        # https://gis.stackexchange.com/questions/281652/finding-all-neighbors-using-geopandas
+        # Drop the column if it exist
+        if 'NEIGHBORS' in gdf.columns:
+            gdf = gdf.drop(columns=["NEIGHBORS", "KEEP"])
+        # add NEIGHBORS column
+        gdf = gdf.reindex(columns=gdf.columns.tolist() + ['NEIGH', 'NEIGH_INDEX'])
+        gdf["NEIGH"] = ''
+        gdf["NEIGH_INDEX"] = ''
+        for index, feature in gdf.iterrows():
+            # get 'not disjoint' countries
+            neighbors = gdf[~gdf.geometry.disjoint(feature.geometry)]["NOM_IMAGE_"].tolist()
+            neighbors_index = gdf[~gdf.geometry.disjoint(feature.geometry)].index.tolist()
+            neighbors = [name for name in neighbors if feature["NOM_IMAGE_"] != name]
+            neighbors_index = [ind for ind in neighbors_index if feature["ind"] != ind]
+            # except ValueError:
+            if isinstance(neighbors, list):
+                gdf.at[index, "NEIGH"] = str(neighbors)
+                gdf.at[index, "NEIGH_INDEX"] = str(neighbors_index)
+            else:
+                gdf.at[index, "NEIGHBORS"] = str(list([int(neighbors)]))
+                gdf.at[index, "NEIGH_INDEX"] = str(list([int(neighbors_index)]))
+        return gdf
     
     @classmethod
     def get_image_name(cls, gdf: gpd.GeoDataFrame) -> list:
@@ -74,7 +101,9 @@ class IndexProcesser:
         names = self.get_image_name(gdf)
         gdf["names_short"] = names
         gdf = gdf.drop_duplicates(subset=['names_short'])
+        gdf["ind"] = [i for i in range(len(gdf))]
         gdf.index = [i for i in range(len(gdf))]
+        gdf = self.get_neighbours(gdf)
         self.trimmed_index = gdf
         return 0
 
@@ -98,7 +127,8 @@ class IndexProcesser:
                 bounds = src.bounds
                 geom = box(*bounds)
                 modified_gdf.loc[idx, "geometry"] = geom
-
+        shp_path = os.path.split(raster_path)
+        modified_gdf.to_file(os.path.join(shp_path[0],"Index\RasterBox_Index.shp"))
         self.raster_box_index = modified_gdf
         return 0
 
