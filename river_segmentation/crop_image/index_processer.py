@@ -1,10 +1,10 @@
 import os
+import warnings
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 import rasterio as rio
-from shapely.geometry import box
-
+from shapely.geometry import box, Polygon, LineString, Point
 
 class IndexProcesser:
     def __init__(self):
@@ -13,6 +13,8 @@ class IndexProcesser:
         self._trimmed_index = None
         self._photos_path = None
         self._raster_box_index = None
+        self._center_line = None
+        self._center_line_path = None
         pass
 
     @property
@@ -47,7 +49,16 @@ class IndexProcesser:
     @raster_box_index.setter
     def raster_box_index(self, gdf: gpd.GeoDataFrame):
         self._raster_box_index = gdf
-    
+
+    @property
+    def center_line(self) -> gpd.GeoDataFrame:
+        return self._center_line
+
+    @center_line.setter
+    def center_line(self, shp_path: str):
+        self._center_line_path = shp_path
+        self._center_line = gpd.read_file(shp_path)
+
     @classmethod
     def get_neighbours(cls, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         # https://gis.stackexchange.com/questions/281652/finding-all-neighbors-using-geopandas
@@ -87,8 +98,9 @@ class IndexProcesser:
         # name_list = []
         return names_compararison
 
-    def reproject_index(self, objtecive_crs: str):
+    def reproject_shp(self, objtecive_crs: str):
         self._index_original = self._index_original.to_crs(epsg=objtecive_crs)
+        self._center_line = self._center_line.to_crs(epsg=objtecive_crs)
         # return 0
 
     def trim_index(self):
@@ -105,7 +117,7 @@ class IndexProcesser:
         gdf.index = [i for i in range(len(gdf))]
         gdf = self.get_neighbours(gdf)
         self.trimmed_index = gdf
-        return 0
+        # return 0
 
     def create_box_from_extent(self, ext_prefix: str):
         modified_gdf = self.trimmed_index.copy()
@@ -128,9 +140,9 @@ class IndexProcesser:
                 geom = box(*bounds)
                 modified_gdf.loc[idx, "geometry"] = geom
         shp_path = os.path.split(raster_path)
-        modified_gdf.to_file(os.path.join(shp_path[0],"Index\RasterBox_Index.shp"))
+        modified_gdf.to_file(os.path.join(shp_path[0],"Index/RasterBox_Index.shp"))
         self.raster_box_index = modified_gdf
-        return 0
+        # return 0
 
     def clip_overlapping_features(self):
         # Load the shapefile
@@ -159,3 +171,41 @@ class IndexProcesser:
         # Export the index create by raster extent
         save_path = os.path.split(self._index_path)
         modified_gdf.to_file(os.path.join(save_path[0],"Clipped_RasterBox_Index.shp"))
+        
+    def find_intersections(self):
+        tiles_gdf = self.raster_box_index
+        center_lines_gdf = self.center_line
+        # List to store the points
+        points = []
+        
+        # Iterate over the tiles then intersect it with the lines
+        for _, feature_tile in tiles_gdf.iterrows():
+            tiles_geom = feature_tile.geometry
+            # Iterate over the center line.
+            for _, feature_line in center_lines_gdf.iterrows():
+                river_geom = feature_line.geometry
+                # Get the edges of the polygon to intersect the river with each line
+                polygon_edges = [LineString([tiles_geom.exterior.coords[i],
+                                             tiles_geom.exterior.coords[i + 1]])
+                                             for i in range(len(tiles_geom.exterior.coords) - 1)]  # Loop through all edges
+                for edge in polygon_edges:
+                    intersection = edge.intersection(river_geom)
+                
+                    # print(intersection.geom_type)
+                    if intersection.is_empty:
+                        continue
+                    else:
+                        # There can be multiple types of geometries when it comes to intersect these two shp
+                        if intersection.geom_type == "Point":
+                            points.append(intersection)
+                        elif intersection.geom_type == 'MultiPoint':
+                            points.extend(intersection.geoms)
+                        else:
+                            warnings.warn("The river line does not intersect any tile in the index")
+        # Create a shp file with the intersection points
+        # Export the index create by raster extent
+        save_path = os.path.split(self._center_line_path)
+        gdf_points = gpd.GeoDataFrame(geometry=points,crs=tiles_gdf.crs)
+        gdf_points.to_file(os.path.join(save_path[0],"intersection_points.shp"))
+        a = 1
+        return 0
